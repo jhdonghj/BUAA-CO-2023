@@ -15,7 +15,7 @@ module im(
     assign instr = im_reg[addr];
 
     initial begin
-        $readmemh("code/code.txt", im_reg);
+        $readmemh("code.txt", im_reg);
     end
 
 endmodule
