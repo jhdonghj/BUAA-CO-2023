@@ -104,7 +104,7 @@ int main()
 	freopen("test.asm", "w", stdout);
 	printf("subu $31,$31,$31\n"); //���$sp
 	int last = -1;
-    int n = 200;
+    int n = 700;
 	for (i = 0; i < n; i++)
 	{
 		printf("label%d: ", i);
