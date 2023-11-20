@@ -9,7 +9,6 @@ module D_GRF(
     input [4:0] A2,
     input [4:0] A3,
     input [31:0] WD3,
-    input [31:0] pc,
     output [31:0] RD1,
     output [31:0] RD2
     );
@@ -37,7 +36,6 @@ module D_GRF(
             end else begin
                 regs[0] <= 32'b0;
             end
-            $display("%d@%h: $%d <= %h", $time, pc, A3, WD3);
         end
     end
 

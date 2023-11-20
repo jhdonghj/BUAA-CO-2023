@@ -9,6 +9,7 @@ module D_CMP (
     );
 
     assign isBrch = CMPOp == `CMP_EQ ? A == B :
+                    CMPOp == `CMP_NE ? A != B :
                     1'b0;
 
 endmodule

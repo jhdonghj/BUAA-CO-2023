@@ -10,11 +10,13 @@ module M_REG (
     input [31:0] E_EXTout,
     input [31:0] E_ALUout,
     input [31:0] E_RD2,
+    input [31:0] E_HILOout,
     output reg [31:0] M_instr,
     output reg [31:0] M_pc,
     output reg [31:0] M_EXTout,
     output reg [31:0] M_ALUout,
-    output reg [31:0] M_RD2
+    output reg [31:0] M_RD2,
+    output reg [31:0] M_HILOout
     );
 
     always @(posedge clk) begin
@@ -24,12 +26,14 @@ module M_REG (
             M_EXTout <= 0;
             M_ALUout <= 0;
             M_RD2 <= 0;
+            M_HILOout <= 0;
         end else if(WE) begin
             M_instr <= E_instr;
             M_pc <= E_pc;
             M_EXTout <= E_EXTout;
             M_ALUout <= E_ALUout;
             M_RD2 <= E_RD2;
+            M_HILOout <= E_HILOout;
         end
     end
     

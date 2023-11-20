@@ -2,9 +2,20 @@
 `include "defines.v"
 
 module mips(
-        input clk,
-        input reset
-    );
+    input clk,
+    input reset,
+    input [31:0] i_inst_rdata,
+    input [31:0] m_data_rdata,
+    output [31:0] i_inst_addr,
+    output [31:0] m_data_addr,
+    output [31:0] m_data_wdata,
+    output [3 :0] m_data_byteen,
+    output [31:0] m_inst_addr,
+    output w_grf_we,
+    output [4:0] w_grf_addr,
+    output [31:0] w_grf_wdata,
+    output [31:0] w_inst_addr
+);
     wire rst;
     assign rst = reset;
     // wire declearation
@@ -12,20 +23,20 @@ module mips(
     wire [31:0] F_instr, D_instr, E_instr, M_instr, W_instr;
     wire [31:0] D_EXTout, E_EXTout, M_EXTout, W_EXTout;
     wire [31:0] D_RD1, D_RD2, E_RD1, E_RD2, E_RD1_REG, E_RD2_REG, M_RD2;
-    wire [31:0] E_ALUout, M_ALUout, W_ALUout;
+    wire [31:0] E_ALUout, M_ALUout, W_ALUout, E_HILOout, M_HILOout, W_HILOout;
     wire [31:0] M_DMout, W_DMout, M_RD2_REG, D_RD1_GRF, D_RD2_GRF;
     wire [31:0] npc, E_Val, M_Val, W_Val;
     wire [4:0] E_Dst, M_Dst, W_Dst, D_rs, D_rt, E_rs, E_rt, M_rt;
 
     wire D_isBrch, E_ALUSrc, M_MemWrite, E_RegWrite, M_RegWrite, W_RegWrite;
-    wire [2:0] D_CMPOp, D_EXTOp, E_RD1_FOR, E_RD2_FOR, M_DMop;
+    wire [2:0] D_CMPOp, D_EXTOp, E_RD1_FOR, E_RD2_FOR, M_DMOp, M_BEOp;
     wire [2:0] E_WD3Sel, M_WD3Sel, W_A3Sel, W_WD3Sel, E_Tnew, M_Tnew, W_Tnew;
     wire [3:0] D_NPCOp;
-    wire [4:0] E_ALUOp;
+    wire [4:0] E_ALUOp, E_HILOOp;
     assign W_Tnew = 3'd0;
     
     wire D_REG_WE, E_REG_WE, M_REG_WE, W_REG_WE, stall;
-    wire D_REG_RST, E_REG_RST, M_REG_RST, W_REG_RST;
+    wire D_REG_RST, E_REG_RST, M_REG_RST, W_REG_RST, E_HILObusy;
     assign D_REG_WE = !stall, E_REG_WE = 1'b1, M_REG_WE = 1'b1, W_REG_WE = 1'b1;
     assign D_REG_RST = 1'b0, E_REG_RST = stall, M_REG_RST = 1'b0, W_REG_RST = 1'b0;
 
@@ -33,17 +44,19 @@ module mips(
         .D_instr(D_instr),
         .E_instr(E_instr),
         .M_instr(M_instr),
+        .E_HILObusy(E_HILObusy),
         .stall(stall)
     );
     // F-stage
-    F_IFU F_ifu(
+    F_PC F_pc1(
         .clk(clk),
         .rst(rst),
         .stall(stall),
         .npc(npc),
-        .instr(F_instr),
         .pc(F_pc)
     );
+    assign i_inst_addr = F_pc;
+    assign F_instr = i_inst_rdata;
     // D-stage
     D_REG D_reg(
         .clk(clk),
@@ -62,10 +75,13 @@ module mips(
         .A2(D_instr[20:16]),
         .A3(W_Dst),
         .WD3(W_Val),
-        .pc(W_pc),
         .RD1(D_RD1_GRF),
         .RD2(D_RD2_GRF)
     );
+    assign w_grf_we = W_RegWrite;
+    assign w_grf_addr = W_Dst;
+    assign w_grf_wdata = W_Val;
+    assign w_inst_addr = W_pc;
     D_EXT D_ext(
         .Input(D_instr[15:0]),
         .EXTOp(D_EXTOp),
@@ -127,12 +143,22 @@ module mips(
         .ALUOp(E_ALUOp),
         .C(E_ALUout)
     );
+    E_HILO E_hilo(
+        .clk(clk),
+        .rst(rst),
+        .A(E_RD1),
+        .B(E_RD2),
+        .HILOOp(E_HILOOp),
+        .HILOout(E_HILOout),
+        .HILObusy(E_HILObusy)
+    );
     CTRL E_ctrl(
         .instr(E_instr),
         .ALUOp(E_ALUOp),
         .ALUSrc(E_ALUSrc),
         .WD3Sel(E_WD3Sel),
         .RegWrite(E_RegWrite),
+        .HILOOp(E_HILOOp),
         .Dst(E_Dst),
         .rs(E_rs),
         .rt(E_rt),
@@ -140,11 +166,12 @@ module mips(
     );
     assign E_Val = E_WD3Sel == `WD3Sel_ALUout ? E_ALUout :
                     // E_WD3Sel == `WD3Sel_DMout ? E_DMout :
-                    E_WD3Sel == `WD3Sel_PC8 ? E_pc + 8 : 32'd0;
-    wire FOR_M2E_RS = (M_Tnew == 3'b0 && M_RegWrite && M_Dst == E_rs && E_rs);
-    wire FOR_M2E_RT = (M_Tnew == 3'b0 && M_RegWrite && M_Dst == E_rt && E_rt);
-    wire FOR_W2E_RS = (W_Tnew == 3'b0 && W_RegWrite && W_Dst == E_rs && E_rs);
-    wire FOR_W2E_RT = (W_Tnew == 3'b0 && W_RegWrite && W_Dst == E_rt && E_rt);
+                    E_WD3Sel == `WD3Sel_PC8 ? E_pc + 8 :
+                    E_WD3Sel == `WD3Sel_HILO ? E_HILOout : 32'd0;
+    wire FOR_M2E_RS = M_Tnew == 3'b0 && M_RegWrite && M_Dst == E_rs && E_rs;
+    wire FOR_M2E_RT = M_Tnew == 3'b0 && M_RegWrite && M_Dst == E_rt && E_rt;
+    wire FOR_W2E_RS = W_Tnew == 3'b0 && W_RegWrite && W_Dst == E_rs && E_rs;
+    wire FOR_W2E_RT = W_Tnew == 3'b0 && W_RegWrite && W_Dst == E_rt && E_rt;
     assign E_RD1 = FOR_M2E_RS ? M_Val :
                     FOR_W2E_RS ? W_Val :
                     E_RD1_REG;
@@ -161,36 +188,46 @@ module mips(
         .E_EXTout(E_EXTout),
         .E_ALUout(E_ALUout),
         .E_RD2(E_RD2),
+        .E_HILOout(E_HILOout),
         .M_instr(M_instr),
         .M_pc(M_pc),
         .M_EXTout(M_EXTout),
         .M_ALUout(M_ALUout),
-        .M_RD2(M_RD2_REG)
+        .M_RD2(M_RD2_REG),
+        .M_HILOout(M_HILOout)
     );
     M_DM M_dm(
-        .clk(clk),
-        .rst(rst),
-        .WE(M_MemWrite),
+        .MemWrite(M_MemWrite),
+        .DMOp(M_DMOp),
         .A(M_ALUout),
         .WD(M_RD2),
-        .DMOp(M_DMop),
-        .pc(M_pc),
-        .RD(M_DMout)
+        .m_data_addr(m_data_addr),
+        .m_data_wdata(m_data_wdata),
+        .m_data_byteen(m_data_byteen)
     );
+    M_BE M_be(
+        .A(M_ALUout[1:0]),
+        .Din(m_data_rdata),
+        .BEOp(M_BEOp),
+        .Dout(M_DMout)
+    );
+    assign m_inst_addr = M_pc;
     CTRL M_ctrl(
         .instr(M_instr),
         .MemWrite(M_MemWrite),
         .WD3Sel(M_WD3Sel),
         .RegWrite(M_RegWrite),
-        .DMOp(M_DMop),
+        .DMOp(M_DMOp),
+        .BEOp(M_BEOp),
         .Dst(M_Dst),
         .M_Tnew(M_Tnew),
         .rt(M_rt)
     );
     assign M_Val = M_WD3Sel == `WD3Sel_ALUout ? M_ALUout :
                     M_WD3Sel == `WD3Sel_DMout ? M_DMout :
-                    M_WD3Sel == `WD3Sel_PC8 ? M_pc + 8 : 32'd0;
-    wire FOR_W2M_RT = (W_Tnew == 3'b0 && W_RegWrite && W_Dst == M_rt && M_rt);
+                    M_WD3Sel == `WD3Sel_PC8 ? M_pc + 8 :
+                    M_WD3Sel == `WD3Sel_HILO ? M_HILOout : 32'd0;
+    wire FOR_W2M_RT = W_Tnew == 3'b0 && W_RegWrite && W_Dst == M_rt && M_rt;
     assign M_RD2 = FOR_W2M_RT ? W_Val :
                     M_RD2_REG;
     // W-stage
@@ -203,11 +240,13 @@ module mips(
         .M_EXTout(M_EXTout),
         .M_ALUout(M_ALUout),
         .M_DMout(M_DMout),
+        .M_HILOout(M_HILOout),
         .W_instr(W_instr),
         .W_pc(W_pc),
         .W_EXTout(W_EXTout),
         .W_ALUout(W_ALUout),
-        .W_DMout(W_DMout)
+        .W_DMout(W_DMout),
+        .W_HILOout(W_HILOout)
     );
     CTRL W_ctrl(
         .instr(W_instr),
@@ -218,6 +257,7 @@ module mips(
     );
     assign W_Val = W_WD3Sel == `WD3Sel_ALUout ? W_ALUout :
                     W_WD3Sel == `WD3Sel_DMout ? W_DMout :
-                    W_WD3Sel == `WD3Sel_PC8 ? W_pc + 8 : 32'd0;
+                    W_WD3Sel == `WD3Sel_PC8 ? W_pc + 8 :
+                    W_WD3Sel == `WD3Sel_HILO ? W_HILOout : 32'd0;
 
 endmodule

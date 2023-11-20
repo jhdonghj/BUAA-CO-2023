@@ -13,6 +13,8 @@ module E_ALU(
                 ALUOp == `ALU_AND ? A & B :
                 ALUOp == `ALU_OR  ? A | B :
                 ALUOp == `ALU_LUI ? (B << 16) :
+                ALUOp == `ALU_SLT ? ($signed(A) < $signed(B) ? 32'b1 : 32'b0) :
+                ALUOp == `ALU_SLTU ? A < B :
                 32'b0;
 
 endmodule

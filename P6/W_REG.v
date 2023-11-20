@@ -10,11 +10,13 @@ module W_REG (
     input [31:0] M_EXTout,
     input [31:0] M_ALUout,
     input [31:0] M_DMout,
+    input [31:0] M_HILOout,
     output reg [31:0] W_instr,
     output reg [31:0] W_pc,
     output reg [31:0] W_EXTout,
     output reg [31:0] W_ALUout,
-    output reg [31:0] W_DMout
+    output reg [31:0] W_DMout,
+    output reg [31:0] W_HILOout
     );
 
     always @(posedge clk) begin
@@ -24,12 +26,14 @@ module W_REG (
             W_EXTout <= 0;
             W_ALUout <= 0;
             W_DMout <= 0;
+            W_HILOout <= 0;
         end else if(WE) begin
             W_instr <= M_instr;
             W_pc <= M_pc;
             W_EXTout <= M_EXTout;
             W_ALUout <= M_ALUout;
             W_DMout <= M_DMout;
+            W_HILOout <= M_HILOout;
         end
     end
     
