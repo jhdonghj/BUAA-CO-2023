@@ -74,14 +74,11 @@ module mips(
 
 
     wire [31: 0] BridgeSel =
-         (PrAddr >= `DM_StartAddr) && (PrAddr <= `DM_EndAddr) ?
-         `Bridge_DM :
+         (PrAddr >= `DM_StartAddr) && (PrAddr <= `DM_EndAddr) ? `Bridge_DM :
          (PrAddr >= `TC1_StartAddr) && (PrAddr <= `TC1_EndAddr) &&
-         (PrAddr[1 : 0] == 0) && (!count_error_1) ?
-         `Bridge_TC1 :
+            (PrAddr[1 : 0] == 0) && (!count_error_1) ? `Bridge_TC1 :
          (PrAddr >= `TC2_StartAddr) && (PrAddr <= `TC2_EndAddr) &&
-         (PrAddr[1 : 0] == 0) && (!count_error_2) ?
-         `Bridge_TC2 :
+            (PrAddr[1 : 0] == 0) && (!count_error_2) ? `Bridge_TC2 :
          (PrAddr >= `Int_StartAddr) && (PrAddr <= `Int_EndAddr) ? `Bridge_Int :
          `Bridge_error ;
 

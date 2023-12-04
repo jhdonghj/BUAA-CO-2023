@@ -388,9 +388,9 @@ module CPU (
 
     assign M_ExcCode_out =
            (M_ExcCode_in == `ExcCode_Ov || DM_error || half_error || word_error || timer_error || counter_error) ?
-           M_store ? `ExcCode_AdES :
+           (M_store ? `ExcCode_AdES :
            M_load ? `ExcCode_AdEL :
-       M_ExcCode_in :
+       M_ExcCode_in) :
            M_ExcCode_in;
 
     M_CP0 M_CP0(

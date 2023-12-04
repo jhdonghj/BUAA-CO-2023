@@ -7,25 +7,7 @@
 `define ctrl   mem[0]
 `define preset mem[1]
 `define count  mem[2]
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date:    21:43:39 12/28/2017 
-// Design Name: 
-// Module Name:    TC 
-// Project Name: 
-// Target Devices: 
-// Tool versions: 
-// Description: 
-//
-// Dependencies: 
-//
-// Revision: 
-// Revision 0.01 - File Created
-// Additional Comments: 
-//
-//////////////////////////////////////////////////////////////////////////////////
+
 module TC(
     input clk,
     input reset,
@@ -56,6 +38,7 @@ module TC(
 		else if(WE) begin
 			// $display("%d@: *%h <= %h", $time, {Addr, 2'b00}, load);
 			mem[Addr[3:2]] <= load;
+			// Addr[3:2] != 2  cannot write to count
 		end
 		else begin
 			case(state)
