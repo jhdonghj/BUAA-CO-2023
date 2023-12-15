@@ -2,6 +2,7 @@
 `include "defines.v"
 
 module E_HILO (
+    input Req,
     input clk,
     input rst,
     input [31:0] A,
@@ -36,7 +37,9 @@ module E_HILO (
             lo <= 0;
         end else begin
             if(stage == 0) begin
-                if(mult) begin
+                if(Req) begin
+                    stage <= 0;
+                end else if(mult) begin
                     {nxt_hi, nxt_lo} <= $signed(A) * $signed(B);
                     stage <= 5;
                 end else if(multu) begin

@@ -4,7 +4,7 @@
 module D_REG (
     input clk,
     input rst,
-    input WE,
+    input WE,                   // WE = !stall
     input Req,
     input [31:0] F_instr,
     input [31:0] F_pc,

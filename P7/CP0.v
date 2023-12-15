@@ -1,11 +1,12 @@
 `timescale 1ns / 1ps
 `include "defines.v"
-`define IM SR[15:10]
-`define EXL SR[1]
-`define IE SR[0]
-`define BD Cause[31]
-`define IP Cause[15:10]
-`define ExcCode Cause[6:2]
+`define IM SR[15:10]        // interrupt mask
+`define EXL SR[1]           // exception level
+`define IE SR[0]            // global interrupt enable
+`define BD Cause[31]        // branch delay
+`define IP Cause[15:10]     // interrupt pending
+`define ExcCode Cause[6:2]  // exception code
+// 12 -> SR    13 -> Cause    14 -> EPC
 
 module CP0 (
     input clk,
@@ -57,13 +58,20 @@ module CP0 (
                 EPC <= tmp_EPC;
             end else if(WE) begin
                 case(A)
-                    5'd12: SR <= Din;
-                    5'd13: Cause <= Din;
+                    5'd12: SR <= Din & 32'b1111_1100_0000_0011;
                     5'd14: EPC <= Din;
                 endcase
             end
             `IP <= HWInt;
         end
     end
-    
+/*
+`define IM SR[15:10]
+`define EXL SR[1]
+`define IE SR[0]
+`define BD Cause[31]
+`define IP Cause[15:10]
+`define ExcCode Cause[6:2]
+
+*/
 endmodule

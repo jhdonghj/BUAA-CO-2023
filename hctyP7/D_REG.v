@@ -3,7 +3,7 @@
 module D_REG (
         input clk,
         input reset,
-        input WE,
+        input WE,               // WE = !stall
         input Req,
         input [4: 0] ExcCode_in,
         input [31: 0] PC_in,

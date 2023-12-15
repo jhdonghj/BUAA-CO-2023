@@ -64,15 +64,15 @@ module CPU(
     F_PC F_pc1(
         .clk(clk),
         .rst(rst),
-        .stall(stall),
+        .WE(!stall || Req),
         .npc(npc),
         .pc(F_pc_tmp)
     );
     assign F_pc = Req ? 32'h4180 :
                     D_NPCOp == `NPC_ERET ? EPC :
                     F_pc_tmp;
-    assign i_inst_addr = IM_err ? 32'b0 : F_pc;
-    assign F_instr = IM_err ? 32'h3000 : i_inst_rdata;
+    assign i_inst_addr = IM_err ? 32'h3000 : F_pc;
+    assign F_instr = IM_err ? 32'h0 : i_inst_rdata;
 
     assign IM_err = F_pc[1:0] != 2'b00 || F_pc > `IM_EndAddr || F_pc < `IM_Addr;
     assign F_ExcCode = IM_err ? `ExcCode_AdEL : 5'b0;
@@ -154,6 +154,7 @@ module CPU(
                         D_syscall ? `ExcCode_Sys :
                         D_unknow ? `ExcCode_RI :
                         5'b0;
+    wire [31:0] D_instr_out = D_unknow ? 32'h0 : D_instr;
     // E-stage
     E_REG E_reg(
         .clk(clk),
@@ -161,7 +162,7 @@ module CPU(
         .WE(E_REG_WE),
         .stall(stall),
         .Req(Req),
-        .D_instr(D_instr),
+        .D_instr(D_instr_out),
         .D_pc(D_pc),
         .D_EXTout(D_EXTout),
         .D_RD1(D_RD1),
@@ -184,6 +185,7 @@ module CPU(
         .Ov(E_Ov)
     );
     E_HILO E_hilo(
+        .Req(Req),
         .clk(clk),
         .rst(rst),
         .A(E_RD1),
@@ -303,10 +305,10 @@ module CPU(
         .EPCout(EPC),
         .Req(Req)
     );
-    assign DM_addr = `DM_Addr <= M_dm_addr || M_dm_addr <= `DM_EndAddr;
+    assign DM_addr = `DM_Addr <= M_dm_addr && M_dm_addr <= `DM_EndAddr;
     assign timer_addr = (`TC1_Addr <= M_dm_addr && M_dm_addr <= `TC1_EndAddr) ||
                         (`TC2_Addr <= M_dm_addr && M_dm_addr <= `TC2_EndAddr);
-    assign int_addr = M_dm_addr < `INT_Addr || `INT_EndAddr < M_dm_addr;
+    assign int_addr = `INT_Addr <= M_dm_addr && M_dm_addr <= `INT_EndAddr;
     assign count_addr = M_dm_addr == `TC1_Count_Addr || M_dm_addr == `TC2_Count_Addr;
     assign M_AdEL = (M_DMOp == `DM_LW && M_dm_addr[1:0] != 2'b00) ||
                     (M_DMOp == `DM_LH && M_dm_addr[0] != 1'b0) ||

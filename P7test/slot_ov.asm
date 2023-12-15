@@ -1,93 +1,38 @@
 .ktext 0x4180
-	
+
 _entry:	
-	mfc0	$1, $13
-	ori	$k0, $0, 0x1000
-	sw	$sp, -4($k0)
-	
-	addi	$k0, $k0, -256
-	move	$sp, $k0
+	mfc0	$1, $13				# get CAUSE
+	ori	$k0, $0, 0x1000			# stack bottom
+	sw	$sp, -4($k0)			# store sp
+
+	addi	$k0, $k0, -256		# stack top
+	move	$sp, $k0			# set sp
 	
 	beq $0, $0,	_save_context
 	nop
-
-_quick_handle:
-	mfc0	$1, $13
-	mfc0	$k0, $13
-	andi	$k0, $k0, 0x00ff
-
-	ori $k1, $0, 0x4
-	div $k0, $k1
-	mflo $k0
-	# srl	$k0, $k0, 2
-	
-	ori	$k1, $0, 0x0004
-	beq	$k0, $k1, adel_handler_quick
-	nop
-	
-	ori	$k1, $0, 0x000a
-	beq	$k0, $k1, ri_handler_quick
-	nop
-	
-	beq $0, $0, _entry
-	nop
-	
-adel_handler_quick:
-	mfc0    $t8,$14
-	andi    $t9,$t8,3
-	bne     $t9,$0,adel_type_1
-	nop
-	addi    $t9,$t8,-0x3000
-	lui     $s7,0xffff
-	ori	$s7,$s7,0xe000
-	and     $t9,$t9,$s7
-	bne     $t9,$0,adel_type_2
-	nop
-	beq $0, $0,       _entry
-	nop
-	
-
-adel_type_1:
-	ori       $10,$0,0x3230
-	mtc0      $10,$14
-	eret
-	
-adel_type_2:
-	ori       $10,$0,0x3240
-	mtc0      $10,$14
-	eret
-
-
-	
-ri_handler_quick:
-	ori       $10,$0,0x3220
-	mtc0      $10,$14
-	eret
-
 	
 _main_handler:
-	mfc0	$k0, $13
-	andi	$k0, $k0, 0x00ff
+	mfc0	$k0, $13				# k0 <- CAUSE
+	andi	$k0, $k0, 0x00ff		# k0 <- exception code << 2
 
-	ori $k1, $0, 0x4
+	ori $k1, $0, 0x4				
 	div $k0, $k1
-	mflo $k0
-	# srl	$k0, $k0, 2
+	mflo $k0						# k0 <- exception code
 	
-	ori	$k1, $0, 0x0000
-	beq	$k0, $k1, int_handler
+	ori	$k1, $0, 0x0000				
+	beq	$k0, $k1, int_handler		# if k0 == 0, interrupt
 	nop
 	ori	$k1, $0, 0x0004
-	beq	$k0, $k1, adel_handler
+	beq	$k0, $k1, adel_handler		# if k0 == 4, address error (load/im)
 	nop
 	ori	$k1, $0, 0x0005
-	beq	$k0, $k1, ades_handler
+	beq	$k0, $k1, ades_handler		# if k0 == 5, address error (store)
 	nop
 	ori	$k1, $0, 0x000a
-	beq	$k0, $k1, ri_handler
+	beq	$k0, $k1, ri_handler		# if k0 == 10, unknown instruction
 	nop
 	ori	$k1, $0, 0x000c
-	beq	$k0, $k1, ov_handler
+	beq	$k0, $k1, ov_handler		# if k0 == 12, arithmetic overflow
 	nop
 	
 int_handler:
@@ -97,7 +42,6 @@ int_handler:
 	sw	$v0, 0($sp)
 	mfc0	$v0, $13
 	sw	$v0, 4($sp)
-	
 	
 	# check INT[3]
 	lw	$v0, 0($sp)
@@ -174,9 +118,6 @@ restart_timer:
 	lw	$t2, 0($t2)
 	lw	$t6, 4($t2)
 	
-	
-
-
 	# restart Timer 0
 	ori $t1, $0, 0x0
 	# li 	$t1, 0x0
@@ -218,7 +159,9 @@ restart_timer:
 	jr 	$ra
 	nop	
 
+# skip exception code (include the delay slot)
 adel_handler:
+	ori $t0, 0xff10			# adel
 	mfc0	$t0, $14
 	mfc0	$k0, $13
 	lui	$t2, 0x8000
@@ -232,7 +175,9 @@ adel_handler:
 	beq $0, $0,	_restore_context
 	nop
 
+# skip exception code (include the delay slot)
 ades_handler:
+	ori $t0, 0xff20			# ades
 	mfc0	$t0, $14
 	mfc0	$k0, $13
 	lui	$t2, 0x8000
@@ -246,38 +191,41 @@ ades_handler:
 	beq $0, $0,	_restore_context
 	nop
 	
-
+# skip exception code (include the delay slot)
 ri_handler:
-	mfc0	$t0, $14
-	mfc0	$k0, $13
-	lui	$t2, 0x8000
-	and	$t3, $k0, $t2
-	addi	$t0, $t0, 4
-	bne	$t3, $t2, ri_nxt
+	ori $t0, 0xff30			# ri
+	mfc0	$t0, $14				# t0 <- EPC
+	mfc0	$k0, $13				# k0 <- CAUSE
+	lui	$t2, 0x8000					
+	and	$t3, $k0, $t2				# t3 <- BD
+	addi	$t0, $t0, 4				# t0 <- EPC + 4
+	bne	$t3, $t2, ri_nxt			# if BD != 1, skip
 	nop
-	addi	$t0, $t0, 4
+	addi	$t0, $t0, 4				# if BD == 1, t0 <- EPC + 4
 	ri_nxt:
-	mtc0	$t0, $14
+	mtc0	$t0, $14				# EPC <- t0
 	beq $0, $0,	_restore_context
 	nop
-	
+
+# skip exception code (include the delay slot)
 ov_handler:
-	mfc0	$t0, $14
-	mfc0	$k0, $13
-	lui	$t2, 0x8000
-	and	$t3, $k0, $t2
-	addi	$t0, $t0, 4
-	bne	$t3, $t2, ov_nxt
+	ori $t0, 0xff40			# ov
+	mfc0	$t0, $14				# t0 <- EPC
+	mfc0	$k0, $13				# k0 <- CAUSE
+	lui	$t2, 0x8000					
+	and	$t3, $k0, $t2				# t3 <- BD
+	addi	$t0, $t0, 4				# t0 <- EPC + 4
+	bne	$t3, $t2, ov_nxt			# if BD != 1, skip
 	nop
-	addi	$t0, $t0, 4
+	addi	$t0, $t0, 4				# if BD == 1, t0 <- EPC + 4
 	ov_nxt:
-	mtc0	$t0, $14
+	mtc0	$t0, $14				# EPC <- t0
 	beq $0, $0,	_restore_context
 	nop
 
 _restore:
 	eret
-	
+
 _save_context:
     	sw  	$2, 8($sp)    
     	sw  	$3, 12($sp)    
@@ -313,12 +261,9 @@ _save_context:
 	sw 	$k0, 132($sp)
 	beq $0, $0,	_main_handler
 	nop
-	
-
 
 _restore_context:
 	ori $sp, $0, 0x1000
-	# li	$sp, 0x1000
 	addi	$sp, $sp, -256
     	lw  	$2, 8($sp)    
     	lw  	$3, 12($sp)    
@@ -356,16 +301,12 @@ _restore_context:
     	beq $0, $0, 	_restore	
 	nop	
 	
-.data
-.globl TC0_BASE TC1_BASE cnt0 cnt1 cnt0_double cnt1_double
-TC0_BASE: .word 0x7f00
-TC1_BASE: .word 0x7f10
-cnt0: .word 1
-cnt1: .word 1
-cnt0_double: .word 0
-cnt1_double: .word 0
-	
-.text 
+
+.text
+
+# init begin
+
+    # set $gp, $sp, SR
 	ori	$28, $0, 0x0000
 	ori	$29, $0, 0x0f00
 	mtc0	$0, $12
@@ -376,52 +317,61 @@ cnt1_double: .word 0
 	ori 	$t1, $0, 0x7f10
 	sw 	$t1, 4($0)
 	
-	#set SR included IM, IE, EXL
+	#set SR included IM(interupt, TC1), IE(1), EXL(0)
 	ori 	$t0,$0, 0x0c01
 	mtc0 	$t0,$12
-	
-	#set Timer0
-	la 	$t1, TC0_BASE
-	lw 	$t1, 0($t1)
-	sw 	$0, 0($t1)		# disable Timer0.CTRL
-	
-	addi 	$t0, $0, 0x80		# set Timer0.PRESET
-	sw 	$t0, 4($t1)
-	addi 	$t0, $0, 9		# set Timer0.CTRL
-	sw 	$t0, 0($t1)
-	
-	#set Timer1
-	la 	$t1, TC1_BASE
-	lw 	$t1, 0($t1)
-	sw 	$0, 0($t1)		# disable Timer1.CTRL
-	
-	addi 	$t0, $0, 0x40		# set Timer1.PRESET
-	sw 	$t0, 4($t1)
-	addi 	$t0, $0, 9		# set Timer1.CTRL
-	sw 	$t0, 0($t1)
 
+
+# init end
+# ov begin
+
+
+# test add positive overflow in beq db
 	lui	$8, 0x7fff
 	lui	$9, 0x7fff
 	ori	$8, $8, 0xffff
 	beq $0, $0,	slot_ov1
 	add	$10, $8, $9	
 slot_ov1:
-	lui     $t0,0x8000
-	jal	slot_ov2
-	addi	$10, $8, -1
+
+# test add negative overflow in jal db
+    lui	$8, 0x8000
+    lui	$9, 0x8000
+    ori	$8, $8, 0x0001
+    jal slot_ov2
+    add	$10, $8, $9
 slot_ov2:
-	ori	$t1, $0, 0x0ba0
-	lui	$8, 0x8000
-	lui	$9, 0x1000
-	beq $0, $0,	slot_ov3
-	sub	$10, $8, $9
+
+# test sub positive overflow in jal db
+    lui	$8, 0x7fff
+    lui	$9, 0xffff
+    ori	$9, $9, 0xffff
+    jal	slot_ov3
+    sub	$10, $8, $9
 slot_ov3:
-	ori	$t2, $0, 0x93ac
-	lui	$8, 0x7fff
-	lui	$9, 0x7fff
-	beq $0, $0,       slot_ov4
-	add     $10, $8, $9
+
+# test sub negative overflow in beq db
+    lui	$8, 0x8000
+    lui	$9, 0x7fff
+    ori	$8, $8, 0x0001
+    beq $0, $0,	slot_ov4
+    sub	$10, $8, $9
 slot_ov4:
+
+# test addi positive overflow in beq db
+    lui	$8, 0x7fff
+    ori	$8, $8, 0x0001
+    beq $0, $0,	slot_ov5
+    addi $9, $8, 0xffff
+slot_ov5:
+
+# test addi negative overflow in jal db
+    lui	$8, 0x8000
+    jal slot_ov6
+    addi $9, $8, -1
+slot_ov6:
+
+# test ov in db
 	ori     $t2, $0, 0x5daa
 	lui	$8, 0x7fff
 	lui	$9, 0x8000
@@ -430,135 +380,18 @@ slot_ov4:
 	lui	$9, 0x8111
 	add     $10, $8, $9
 	addi    $10, $8,-2
-	beq     $0,$0,slot_adel1
+	beq     $0, $0, slot_ov7
 	addi    $10, $8,-3
 	add     $10, $8, $9
 	sub	$10, $8, $9
-slot_adel1:	
-slot_adel2:
-	ori $8, $0, 0x801
-	ori $9, $0, 0x800
-	sw      $9,0($9)
-	lh      $9,0($8)
-	beq $0, $0,       slot_adel3
-	nop
-	
-slot_adel3:
-	ori $8, $0, 0x802
-	# li	$8, 0x802
-	lw      $9,0($8)
-	beq $0, $0,       slot_adel4
-	nop
-	
-slot_adel4:
-	ori $8, $0, 0x803
-	# li	$8, 0x803
-	lh      $9,0($8)
-	beq $0, $0,       slot_adel5
-	nop
-	
-slot_adel5:
-	ori $8, $0, 0x803
-	lw      $9,0($8)
-	beq $0, $0,       slot_ades1
-	nop
-	
-slot_ades1:
-	ori $8, $0, 0x801
-	# li	$8, 0x801
-	sh      $9,0($8)
-	beq $0, $0,       slot_ades2
-	nop
-	
-slot_ades2:
-	ori $8, $0, 0x802
-	# li	$8, 0x802
-	sw      $9,0($8)
-	beq $0, $0,       slot_ades3
-	nop
-slot_ades3:
-	ori $8, $0, 0x801
-	# li	$8, 0x801
-	sw      $9,0($8)
-	beq $0, $0,       slot_combination
-	nop
-	
-slot_combination:
-	lui      $s0,0x8000
-	lui      $s1,0x7fff
-	ori      $s1,$s1,0xffff
-	add     $10,$s0,$s0
-	sub     $10,$s0,$s1
-	addi    $10,$s1,10
-	sw      $10,0x1002($0)
-	sh      $10,0x1001($0)
-	mult    $10,$10
-	lw      $10,0x1002($0)
-	lh      $10,0x1001($0)
-	mult    $10,$10
-	lh      $10,0x1001($0)
-	andi $10, $10, 0xffff
-	# lhu      $10,0x1001($0)
-	sub     $10,$s0,$s1
-	addi    $10,$s1,10
-	sw      $10,0x1002($0)
-	sh      $10,0x1001($0)
-	mult    $10,$10
-	sw      $10,0x1002($0)
-	sh      $10,0x1001($0)
-	lw      $10,0x1002($0)
-	lh      $10,0x1001($0)
-	mult    $10,$10
-	sh      $10,0x1001($0)
-	add     $10,$s0,$s0
-	sub     $10,$s0,$s1
-	mult    $10,$10
-	add     $10,$s0,$s0
-	sub     $10,$s0,$s1
-	beq $0, $0, label_1
-	add     $10,$s0,$s0
-	sub     $10,$s0,$s1
-label_1:
-	mult    $10,$10
-	add     $10,$s0,$s0
-	sub     $10,$s0,$s1
-	mult    $10,$10
-	sh      $10,0x1001($0)
-	lw      $10,0x1002($0)
-	add     $10,$s0,$s0
-	bne     $0,$10,label_2
-	lw      $10,0x1002($0)
-	sh      $10,0x1001($0)
-label_2:
-	sub     $10,$s0,$s1
-	mult    $10,$10
-	sh      $10,0x1001($0)
-	lw      $10,0x1002($0)
-	nop
-	
-	ori	$t0, $0, 0x0001
-wait:
-	lw	$k0, 8($0)
-	lw	$k1,12($0)
-	bne	$k0, $t0, wait
-	nop
-	bne	$k1, $t0, wait
-	nop
-	ori	$t0, $0, 0xffff
-	ori	$t1, $0, 0xffff	
+slot_ov7:
+
+
+# ov end
+
+
+	ori $13, $0, 0xffff
 dead_loop:
 	beq $0, $0,	dead_loop
 	nop
 
-
-
-la 	$t1, TC0_BASE
-addiu 	$t0, $0, 0x80		# set Timer0.PRESET
-addiu 	$t0, $0, 9		# set Timer0.CTRL
-la 	$t1, TC1_BASE
-addiu 	$t0, $0, 0x40		# set Timer1.PRESET
-addiu 	$t0, $0, 9		# set Timer1.CTRL
-lhu      $9,0($8)
-lhu      $10,0x1001($0)
-
-la -> addiu

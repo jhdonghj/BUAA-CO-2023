@@ -4,7 +4,7 @@
 module F_PC (
     input clk,
     input rst,
-    input stall,
+    input WE,
     input [31:0] npc,
     output reg [31:0] pc
     );
@@ -16,9 +16,7 @@ module F_PC (
     always @(posedge clk) begin
         if(rst) begin
             pc <= `PC_BIAS;
-        end else if(stall) begin
-            pc <= pc;
-        end else begin
+        end else if(WE) begin
             pc <= npc;
         end
     end

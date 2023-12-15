@@ -115,9 +115,9 @@ module CTRL(
     assign ALUSrc = 1'b0 | calc_i | load | store | lui;
     assign ALUOp = {{1'b0},
                     {1'b0},
-                    {1'b0 | lui | slt | sltu | addu | subu | addiu},
-                    {1'b0 | ori | and_ | or_ | sltu | andi | addu | addiu},
-                    {1'b0 | sub | ori | or_ | slt | addu | addiu}};
+                    {1'b0 | lui | slt | sltu | add | subu | addi | load | store},
+                    {1'b0 | ori | and_ | or_ | sltu | andi | add | addi | load | store},
+                    {1'b0 | sub | ori | or_ | slt | add | addi | load | store}};
     assign NPCOp = {{1'b0},
                     {1'b0 | eret},
                     {1'b0 | jal | jr},
